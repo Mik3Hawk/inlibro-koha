@@ -18,20 +18,19 @@ It simplifies link verification (especially those in field **856u**) within bibl
 
 ## Installation
 
-1. Copy the **CheckUrl** plugin directory into the Koha plugins folder:
+1. Log in to the Koha intranet. Then go to **Administration > Manage plugins**.
 
-   ```bash
-   /var/lib/koha/<instance>/plugins/
-    ```
+2. Click the **“Upload plugin”** button.
 
-2. Restart **Plack** or **Apache** if necessary.
+3. Restart your Database if necessary.
 
-3. Log in to the Koha intranet.
+4. Activate the plugin via the menu:
+   **Administration > Koha plugins > CheckUrl plugin > Action: Enable**
 
-4. Enable the plugin via the menu:
-   **Administration > Koha Plugins > CheckUrl plugin > Action: Enable**
+**Prerequisites**:
 
-**Prerequisite**: the script `check-url-quick.pl` must be present in `misc/cronjobs/`.
+* The script `check-url-quick.pl` must be present in `misc/cronjobs/`.
+* Your Koha system must already be configured to accept plugins.
 
 ---
 

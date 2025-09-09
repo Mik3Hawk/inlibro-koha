@@ -19,20 +19,18 @@ Elle simplifie la verification des liens (notamment ceux en zone **856u**) dans 
 
 ## Installation
 
-1. Copier le repertoire du plugin **CheckUrl** dans le dossier des plugins Koha :
+1. Se connecter à l’intranet de Koha. Puis, aller dans Administrations > Gerer les extensions
 
-   ```bash
-   /var/lib/koha/<instance>/plugins/
-   ```
+2. Cliquer sur le bouton "Televerser une extension"
 
-2. Redémarrer **Plack** ou **Apache** si necessaire.
+2. Redemarrer votre Base de Donnees si necessaire.
 
-3. Se connecter à l’intranet de Koha.
-
-4. Activer le plugin via le menu :
+3. Activer le plugin via le menu :
    **Administration > Extensions Koha > plugin CheckUrl > Action : Activer**
 
-**Prérequis** : le script `check-url-quick.pl` doit etre present dans `misc/cronjobs/`.
+**Prérequis** : 
+ * le script `check-url-quick.pl` doit etre present dans `misc/cronjobs/`.
+ * Vous devez avoir prealablement configure votre systeme Koha pour recevoir des extensions.
 
 ---
 
