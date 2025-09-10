@@ -12,11 +12,11 @@
 <!-- Displaying values -->
 
 
-<div style="margin: 20px; padding: 20px; background-color: #f9f9f9; border: 1px solid #ddd; max-width: 800px; margin: 0 auto;">
+<div style="padding: 20px; background-color: #f9f9f9; border: 1px solid #ddd; max-width: 800px; margin: 0 auto;">
 
     <img width='450px' src='[% PLUGIN_PATH %]/images/inLibro_fr.svg'/>
 
-    <h2 style="font-size: 24px; color: #333; margin-top: 20px;">Index autorités:</h2>
+    <h2 style="font-size: 24px; color: #333; margin-top: 20px;">Index autorités :</h2>
     <p style="font-size: 16px; line-height: 1.5; color: #666; margin: 10px 0;">Nombre d'entrées : 
     <span style="font-weight: bold; color: #FF5733;">[% count_authorities %]</span></p>
 
@@ -55,7 +55,7 @@
 
                 <label for="authid">Numéro de notice d'autorité à réindexer</label>
                 <input type="number" name="authid" id="authid">
-                <p>Indexer uniquement l'id d'autorité fourni, principalement à des fins de test. Peut être répété.</p>
+                <p>Indexer uniquement l'id d'autorité fournie, principalement à des fins de test. Peut être répété.</p>
                 <br>
             </div>
             <div>
@@ -73,7 +73,7 @@
                 <input type="checkbox" name="descending" id="descending">
                 <p>Indexer les enregistrements dans l'ordre décroissant des identifiants. Destiné à indexer les enregistrements les plus 
                     récents avant les enregistrements les plus anciens. La valeur par défaut est l'indexation dans l'ordre croissant. 
-                    Ne fonctionne pas avec le numéro de biblionumber ou l'id d'autorité fournis</p>
+                    Ne fonctionne pas avec le numéro de biblionumber ou l'id d'autorité fournie</p>
                 <br>
 
                 <label for="authorities">Indexer autorités seulement</label>
@@ -94,11 +94,10 @@
     </form>
 </div>
 <br>
-<div style="margin: 20px; padding: 20px; background-color: #f9f9f9; border: 1px solid #ddd; max-width: 800px; margin: 0 auto;white-space:pre-line;">
+<div style="padding: 20px; background-color: #f9f9f9; border: 1px solid #ddd; max-width: 800px; margin: 0 auto;white-space:pre-line;">
     <h2 style="font-size: 24px; color: #333; margin-top: 20px;">Sortie</h2>
     <br>
     [% global_outputs %]
-<div>
 </div>
 
 <br><br>

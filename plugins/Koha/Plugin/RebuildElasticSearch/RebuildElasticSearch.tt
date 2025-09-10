@@ -11,7 +11,7 @@
 
 <!-- Displaying values -->
 
-<div style="margin: 20px; padding: 20px; background-color: #f9f9f9; border: 1px solid #ddd; max-width: 800px; margin: 0 auto;">
+<div style="padding: 20px; background-color: #f9f9f9; border: 1px solid #ddd; max-width: 800px; margin: 0 auto;">
 
     <img width='450px' src='[% PLUGIN_PATH %]/images/inLibro_en.svg'/>
 
@@ -36,7 +36,7 @@
             <div>
                 <label for="commit">Commit</label>
                 <input type="number" name="commit" id="commit">
-                <p>Specify how many records will be batched up before they're added to Elasticsearch. Higher should be faster, but will cause more RAM usage. Default is 5000.</p>
+                <p>Specify how many records will be batched up before they re added to Elasticsearch. Higher should be faster, but will cause more RAM usage. Default is 5000.</p>
                 <br>
 
                 <label for="processes">Number of processes</label>
@@ -86,11 +86,11 @@
     </form>
 </div>
 <br>
-<div style="margin: 20px; padding: 20px; background-color: #f9f9f9; border: 1px solid #ddd; max-width: 800px; margin: 0 auto;white-space:pre-line;">
+<div style="padding: 20px; background-color: #f9f9f9; border: 1px solid #ddd; max-width: 800px; margin: 0 auto;white-space:pre-line;">
     <h2 style="font-size: 24px; color: #333; margin-top: 20px;">Output</h2>
     <br>
     [% global_outputs %]
-<div>
+
 </div>
 
 <br><br>
