@@ -12,7 +12,7 @@ use Koha::SearchEngine::Elasticsearch::Indexer;
 use Koha::BiblioUtils;                        
 use Koha::MetadataRecord::Authority;          
 
-our $VERSION = 2.0;
+our $VERSION = 2.1;
 
 our $metadata = {
     name            => 'Rebuild Elastic Search',
@@ -57,11 +57,12 @@ sub _server_label {
     return $server;
 }
 
-sub _count_docs {
 # Return the total document count for a given ES index.
 
 # @param    Str $index_name index name
 # @returns  Int count (0 on error or missing index name)
+sub _count_docs {
+
 
     my ($index_name) = @_;
 
@@ -76,12 +77,12 @@ sub _count_docs {
     return $count;
 }
 
-sub _indexes_missing {
 #  Check existence of ES indices required by the task (biblios/authorities).
 
 # @param $want_bib: Verify 'biblios' index
 # @param $want_auth: Verify 'authorities' index
 # @returns ($missing_any, $which_missing): (is a index missing, wich indexes are missing)
+sub _indexes_missing {
 
     my ($want_bib, $want_auth) = @_;
     my $missing = 0;
@@ -118,15 +119,20 @@ sub _read_form {
     my $commit     = $cgi->param('commit');
     $commit = 5000 unless (defined $commit && looks_like_number($commit) && $commit > 0);
 
-    my $delete     = $cgi->param('delete')     ? 1 : 0;
-    my $reset      = $cgi->param('reset')      ? 1 : 0;
-    my $descending = $cgi->param('descending') ? 1 : 0;
-    my $authorities= $cgi->param('authorities')? 1 : 0;
-    my $biblios    = $cgi->param('biblios')    ? 1 : 0;
+    my $delete      = $cgi->param('delete')      ? 1 : 0;
+    my $reset       = $cgi->param('reset')       ? 1 : 0;
+    my $descending  = $cgi->param('descending')  ? 1 : 0;
+    my $authorities = $cgi->param('authorities') ? 1 : 0;
+    my $biblios     = $cgi->param('biblios')     ? 1 : 0;
 
-    my ($bnumber)    = _parse_id_list( scalar $cgi->param('bnumber') );
-    my @authid     = _parse_id_list( scalar $cgi->param('authid')  );
+    my $bnumber = scalar $cgi->param('bnumber') // undef;
 
+    $bnumber = (defined $bnumber && $bnumber ne '') ? int($bnumber) : undef;
+
+    my $authid  = scalar $cgi->param('authid') // undef;
+    $authid  = (defined $authid  && $authid  ne '') ? int($authid)  : undef;
+
+    # Si aucune cible cochée, on prend les deux
     if (!$biblios && !$authorities) { $biblios = 1; $authorities = 1; }
 
     my $mode = 'update';
@@ -140,18 +146,18 @@ sub _read_form {
         biblios      => $biblios,
         authorities  => $authorities,
         bnumber      => $bnumber,
-        authid       => \@authid,
+        authid       => $authid,
     };
 }
 
 # ----------------------------- Execution ------------------------------------
 
-sub _prepare_index_if_needed {
 # For modes 'delete' and 'reset', (re)create index and optionally update mappings.
 
 # @param $which: specify which index needs to be pepared ; 'biblios'|'authorities'
 # @param $cfg: Config from _read_form
 # @param $log:
+sub _prepare_index_if_needed {
 
     my ($which, $cfg, $log) = @_;
     return if $cfg->{mode} eq 'update';
@@ -171,7 +177,7 @@ sub _prepare_index_if_needed {
     }
 }
 
-# -------------------------------------------- Reindex Biblios --------------------------------
+# ----------------------------------- Reindex Biblios --------------------------------
 # Try to reindex a single biblionumber immediately (no batching)
 #
 # @param $bn   biblionumber
@@ -195,6 +201,7 @@ sub _reindex_biblio {
 
     try {
         $indexer->update_index([ $bn ], [ $rec ]);
+        push @$log, "[biblios] SUCCESS: Biblio #$bn was successfully reindexed.";
         return 1;
     }
     catch {
@@ -219,28 +226,36 @@ sub _reindex_biblios {
 
     my $it = Koha::BiblioUtils->get_all_biblios_iterator(%opt);
 
-    push @$log, sprintf('[biblios] Reindex all (batch=%d%s)…', $batch, $cfg->{desc} ? ', desc' : '');
+    push @$log, sprintf('[biblios] INFO: Reindex all (batch=%d%s)...', $batch, $cfg->{desc} ? ', desc' : '');
 
-    while ( my ($bn, $obj) = $it->next() ) {
-        my $rec = $obj ? eval { $obj->record } : undef;
+    while ( my $obj = $it->next ) {
+        my $bn = eval { $obj->can('biblionumber') ? $obj->biblionumber : $obj->id };
 
-        if (defined $rec){
-            push @ids,  $bn;
-            push @recs, $rec;
-            $count++;
-        } else {
-            push @$log, "[biblios] WARNING: No MARC record for biblionumber=$bn --> Skipped.";
+        my $rec = eval { $obj->record };
+
+        unless (defined $bn && $bn =~ /^\d+$/ && $bn > 0 ){
+            push @$log, "[biblios] WARNING: Missing / Invalid biblionumber --> Skipped.";
+            next;
         }
+        unless (defined $rec) {
+            push @$log, "[biblios] WARNING: No MARC record for biblionumber=$bn --> Skipped.";
+            next;
+        }
+
+        push @ids,  $bn;
+        push @recs, $rec;
+        $count++;
 
         if (@ids >= $batch) {
-            _flush_batch_idx('biblios', 'biblios', \@ids, \@recs, $log);
+            _flush_batch('biblios', 'biblios', \@ids, \@recs, $log);
         }
     }
 
+    # Flusing remaining objects in the flusher
     if (@ids) {
-        _flush_batch_idx('biblios', 'biblios', \@ids, \@recs, $log);
+        _flush_batch('biblios', 'biblios', \@ids, \@recs, $log);
     }
-    push @$log, "[biblios] Total $count records indexed.";
+    push @$log, "[biblios] INFO: Total of ". ($count // 0)." records were indexed.";
 }
 
 # ----------------------------------------- Reindex Authorities -----------------------------
@@ -268,6 +283,7 @@ sub _reindex_authority {
 
     try {
         $indexer->update_index([ $aid ], [ $rec ]);
+        push @$log, "[authorities] SUCCESS: Authority #$aid was successfully reindexed.";
         return 1;
     }
     catch {
@@ -287,58 +303,44 @@ sub _reindex_authorities {
 
     my (@ids, @recs, $count) = ((), (), 0);
 
-    if ($cfg->{authid} && @{ $cfg->{authid} }) {
-        push @$log, sprintf('[authorities] Reindex %d records (batch=%d)…',
-                            scalar(@{ $cfg->{authid} }), $batch);
 
-        for my $aid (@{ $cfg->{authid} }) {
-            my $auth = eval { Koha::MetadataRecord::Authority->get_from_authid($aid) };
-            my $rec  = $auth ? eval { $auth->record } : undef;
+    my %opt;
+    $opt{desc} = 1 if $cfg->{desc};
 
-            if (defined $rec) {
-                push @ids,  $aid;
-                push @recs, $rec;
-                $count++;
-            } else {
-                push @$log, "[authorities] WARNING: No MARC record for authid=$aid --> Skipped.";
-            }
+    my $it = Koha::MetadataRecord::Authority->get_all_authorities_iterator(%opt);
 
-            if (@ids >= $batch) {
-                _flush_batch_idx('authorities', 'authorities', \@ids, \@recs, $log);
-            }
+    push @$log, sprintf('[authorities] INFO: Reindex all (batch=%d%s)...', $batch, $cfg->{desc} ? ', desc' : '');
+
+    while ( my $auth = $it->next ) {
+        my $aid = eval { $auth->authid } // '?';
+        my $rec = eval { $auth->record };
+
+        unless (defined $aid && $aid =~ /^\d+$/ && $aid > 0 ){
+            push @$log, "[authorities] WARNING: Missing / Invalid auth --> Skipped.";
+            next;
         }
-    } else {
-        my %opt; $opt{desc} = 1 if $cfg->{desc};
-        my $it = Koha::MetadataRecord::Authority->get_all_authorities_iterator(%opt);
+        unless (defined $rec) {
+            push @$log, "[authorities] WARNING: No MARC record for auth=$aid --> Skipped.";
+            next;
+        }
 
-        push @$log, sprintf('[authorities] Reindex all (batch=%d%s)…',
-                            $batch, $cfg->{desc} ? ', desc' : '');
+        push @ids,  $aid;
+        push @recs, $rec;
+        $count++;
 
-        while ( my ($aid, $a) = $it->next() ) {
-            my $rec = $a ? eval { $a->record } : undef;
-
-            if (defined $rec) {
-                push @ids,  $aid;
-                push @recs, $rec;
-                $count++;
-            } else {
-                push @$log, "[authorities] WARNING: No MARC record for authid=$aid --> Skipped.";
-            }
-
-            if (@ids >= $batch) {
-                _flush_batch_idx('authorities', 'authorities', \@ids, \@recs, $log);
-            }
+        if (@ids >= $batch) {
+            _flush_batch('authorities', 'authorities', \@ids, \@recs, $log);
         }
     }
-
+    # Flusing remaining objects in the flusher
     if (@ids) {
-        _flush_batch_idx('authorities', 'authorities', \@ids, \@recs, $log);
+        _flush_batch('authorities', 'authorities', \@ids, \@recs, $log);
     }
 
-    push @$log, "[authorities] Total $count records indexed.";
+    push @$log, "[authorities] INFO: Total of ". ($count // 0)." authorities were indexed.";
 }
 # ----------------------------------- Flusher -----------------------------------------
-sub _flush_batch_idx {
+
 # Flush a batch to Elasticsearch and clear buffers
 #
 # @param $index  string   Elasticsearch index name ('biblios' | 'authorities')
@@ -346,19 +348,19 @@ sub _flush_batch_idx {
 # @param $ids    arrayref Buffer of ids
 # @param $recs   arrayref Buffer of MARC::Record objects (same order as $ids)
 # @param $log    arrayref Log collector
-
+sub _flush_batch {
     my ($index, $label, $ids, $recs, $log) = @_;
-    return unless @$ids;
+    return unless @$ids; #nothing to flush
 
     my $indexer = Koha::SearchEngine::Elasticsearch::Indexer->new({ index => $index });
 
     try {
         $indexer->update_index($ids, $recs);
-        push @$log, sprintf("[%s] Indexed batch (%d records, first id=%s)",
+        push @$log, sprintf("[%s] INFO: Indexed batch (%d records, first id=%s)",
                             $label, scalar(@$ids), $ids->[0]);
     }
     catch {
-        push @$log, sprintf("[%s] ERROR batch (first id=%s) --> %s",
+        push @$log, sprintf("[%s] ERROR: batch (first id=%s) --> %s",
                             $label, $ids->[0] // '?', $_);
     };
 
@@ -368,12 +370,12 @@ sub _flush_batch_idx {
 }
 # -------------------------------- Template Util ---------------------------------------
 
-sub _resolve_template {
 # Automatically choose the right template depending on the koha website lang.
-# @param $self: 
+# @param $self:
 # @param $cgi:
 # @param $base: Base template name without specification (should always be RebuildElasticSearch for now)
-# @return: template name based on the lang.
+# @return: the template object
+sub _resolve_template {
 
     my ($self, $cgi, $base) = @_;
     my $locale = $cgi->cookie('KohaOpacLanguage') // '';
@@ -427,14 +429,13 @@ sub tool {
             $outputs = join("\n", @log);
 
         } else {
-            push @log, sprintf('Strating...: mode=%s; targets=%s; batch=%d; desc=%s',
+            push @log, sprintf("STARTING... \nmode=%s; targets=%s; batch=%d; desc=%s\n",
                             $cfg->{mode},
                             join(',', grep { $cfg->{$_} } qw(biblios authorities)),
                             $cfg->{commit},
                             $cfg->{desc} ? 'oui' : 'non');
 
             try {
-
                 if ( $cfg->{biblios} ) {
                     _prepare_index_if_needed('biblios', $cfg, \@log);
 
@@ -447,9 +448,14 @@ sub tool {
                 }
                 if ( $cfg->{authorities} ) {
                     _prepare_index_if_needed('authorities', $cfg, \@log);
-                    _reindex_authorities($cfg, \@log);
+
+                    if ( $cfg->{authid}){
+                        _reindex_authority($cfg->{authid},\@log);
+                    } else {
+                        _reindex_authorities($cfg,\@log);
+                    }
                 }
-                push @log, 'Done';
+                push @log, "\nDONE";
             }
             catch {
                 chomp $_;

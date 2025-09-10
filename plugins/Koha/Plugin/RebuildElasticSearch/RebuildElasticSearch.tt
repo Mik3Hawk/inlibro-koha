@@ -46,12 +46,12 @@
 
                 <label for="bnumber">Index supplied biblionumber</label>
                 <input type="number" name="bnumber" id="bnumber">
-                <p>Only index the supplied biblionumber, mostly for testing purposes. May be repeated.</p>
+                <p>Only index the supplied biblionumber, mostly for testing purposes.</p>
                 <br>
 
                 <label for="authid">Index supplied authority id</label>
                 <input type="number" name="authid" id="authid">
-                <p>Only index the supplied authority id, mostly for testing purposes. May be repeated.</p>
+                <p>Only index the supplied authority id, mostly for testing purposes.</p>
                 <br>
             </div>
             <div>
