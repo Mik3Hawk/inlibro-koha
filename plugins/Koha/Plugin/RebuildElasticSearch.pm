@@ -141,11 +141,10 @@ sub _indexes_missing {
 sub _read_form {
     my ($cgi) = @_;
 
-    my $commit = $cgi->param('commit');
-    $commit = 5000 unless (defined $commit && looks_like_number($commit) && $commit > 0);
+    #DEFAULT BATCH SIZE
+    my $commit = 5000;
 
     my $delete = $cgi->param('delete') ? 1 : 0;
-    my $reset = $cgi->param('reset') ? 1 : 0;
     my $descending = $cgi->param('descending') ? 1 : 0;
     my $authorities = $cgi->param('authorities') ? 1 : 0;
     my $biblios = $cgi->param('biblios') ? 1 : 0;
@@ -163,13 +162,9 @@ sub _read_form {
         $authorities = 1;
     }
 
-    my $mode = 'update';
-    $mode = 'delete' if $delete && !$reset;
-    $mode = 'reset' if $reset;
-
     return {
         commit      => int($commit),
-        mode        => $mode,
+        mode        => $delete ? 'delete' : 'update',
         desc        => $descending,
         biblios     => $biblios,
         authorities => $authorities,
@@ -180,7 +175,7 @@ sub _read_form {
 
 # ----------------------------- Execution ------------------------------------
 
-# For modes 'delete' and 'reset', (re)create index and optionally update mappings.
+# Drop and recreate the index if requested.
 
 # @param $which: specify which index needs to be pepared ; 'biblios'|'authorities'
 # @param $cfg: Config from _read_form
@@ -192,19 +187,13 @@ sub _prepare_index_if_needed {
 
     my $indexer = Koha::SearchEngine::Elasticsearch::Indexer->new({ index => $which });
 
-    push @$log, "[$which] Drop index…";
+    push @$log, "[$which] Drop index ...";
     try {$indexer->drop_index() if $indexer->can('index_exists') ? $indexer->index_exists() : 0;}
     catch {};
 
-    push @$log, "[$which] Create index…";
+    push @$log, "[$which] Create index ...";
     try {$indexer->create_index();}
     catch {push @$log, "[$which] create_index failed: $_";};
-
-    if ($cfg->{mode} eq 'reset') {
-        push @$log, "[$which] Update mappings…";
-        try {$indexer->update_mappings();}
-        catch {push @$log, "[$which] update_mappings failed: $_";};
-    }
 }
 
 # ----------------------------------- Reindex Biblios --------------------------------
@@ -248,12 +237,11 @@ sub _reindex_biblio {
 # @return void
 sub _reindex_biblios {
     my ($cfg, $log) = @_;
-    my $batch = $cfg->{commit} || 5000;
+    my $batch = $cfg->{commit};
 
     my @ids;
     my @recs;
     my $count = 0;
-    push @$log, "[debug] created; size now " . scalar(@ids);
 
     my %opt;
     $opt{desc} = 1 if $cfg->{desc};
@@ -331,7 +319,7 @@ sub _reindex_authority {
 # @return void
 sub _reindex_authorities {
     my ($cfg, $log) = @_;
-    my $batch = $cfg->{commit} || 5000;
+    my $batch = $cfg->{commit};
 
     my @ids;
     my @recs;
@@ -453,7 +441,7 @@ sub tool {
     my $count_authorities_before = _count_docs($auth_index);
 
     my $outputs = '';
-    my @log;
+    my @log = (); #reset a chaque reload
 
     if (uc($cgi->request_method()) eq 'POST') {
         my $cfg = _read_form($cgi);

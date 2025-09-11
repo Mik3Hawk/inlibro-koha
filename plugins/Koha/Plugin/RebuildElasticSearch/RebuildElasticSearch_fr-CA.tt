@@ -1,109 +1,146 @@
 [% INCLUDE 'doc-head-open.inc' %]
 <!-- Head-->
 
-<title>Koha: Rebuild Elastic Search Plugin</title>
+<title>Koha : Plugin de reconstruction d’ElasticSearch</title>
 [% INCLUDE 'doc-head-close.inc' %]
 <!-- Body-->
 [% INCLUDE 'header.inc' %]
 [% INCLUDE 'cat-search.inc' %]
 
-<div id="breadcrumbs"><a href="/cgi-bin/koha/mainpage.pl">Accueil</a> › <a href="/cgi-bin/koha/plugins/plugins-home.pl">Extensions</a> › RebuildElasticSearch</div>
+<div id="breadcrumbs"><a href="/cgi-bin/koha/mainpage.pl">Accueil</a> › <a href="/cgi-bin/koha/plugins/plugins-home.pl">Plugins</a>
+    › RebuildElasticSearch
+</div>
 
 <!-- Displaying values -->
 
-
 <div style="padding: 20px; background-color: #f9f9f9; border: 1px solid #ddd; max-width: 800px; margin: 0 auto;">
 
-    <img width='450px' src='[% PLUGIN_PATH %]/images/inLibro_fr.svg'/>
+    <img width='450px' src='[% PLUGIN_PATH %]/images/inLibro_en.svg'/>
 
-    <h2 style="font-size: 24px; color: #333; margin-top: 20px;">Index autorités :</h2>
-    <p style="font-size: 16px; line-height: 1.5; color: #666; margin: 10px 0;">Nombre d'entrées : 
-    <span style="font-weight: bold; color: #FF5733;">[% count_authorities %]</span></p>
+    <h2 style="font-size: 24px; color: #333; margin-top: 20px;">Index des autorités :</h2>
+    <p style="font-size: 16px; line-height: 1.5; color: #666; margin: 10px 0;">Entrées :
+        <span style="font-weight: bold; color: #FF5733;">[% count_authorities %]</span></p>
+
+    <br>
+
+    <h2 style="font-size: 24px; color: #333; margin-top: 20px;">Index des notices :</h2>
+    <p style="font-size: 16px; line-height: 1.5; color: #666; margin: 10px 0;">Entrées :
+        <span style="font-weight: bold; color: #FF5733;">[% count_biblios %]</span></p>
 
     <br>
 
-    <h2 style="font-size: 24px; color: #333; margin-top: 20px;">Index notices</h2>
-    <p style="font-size: 16px; line-height: 1.5; color: #666; margin: 10px 0;">Nombre d'entrées : 
-    <span style="font-weight: bold; color: #FF5733;">[% count_biblios %]</span></p>
+    <form id="rebuildForm" method="post" style="font-size: 16px; color: #333; margin-top: 20px;">
 
-    <br>
-    
-    <form id="rebuildForm" method="post" style="font-size: 16px; color: #333; margin-top: 20px;"> 
+        <input type='hidden' name='class' value='[% CLASS %]'/>
+        <input type='hidden' name='method' value='[% METHOD %]'/>
+        <input type='hidden' name='action' value='generate'/>
 
-    <input type='hidden' name='class' value='[% CLASS %]'/>
-    <input type='hidden' name='method' value='[% METHOD %]'/>
-    <input type='hidden' name='action' value='generate'/>
+        <fieldset class="form-section" style="background-color: #f9f9f9">
+            <legend>Enregistrements à indexer</legend>
 
-        <div id="commandsform">
-            <div>
-                <label for="commit">Validations</label>
-                <input type="number" name="commit" id="commit">
-                <p>Spécifier le nombre d'enregistrements qui seront regroupés avant d'être ajoutés à Elasticsearch. 
-                    Un nombre plus élevé devrait être plus rapide, mais entraînera une utilisation plus importante de la RAM. La valeur par défaut est 5 000.</p>
-                <br>
-
-                <label for="processes"> Nombre de processus</label>
-                <input type="number" name="processes" id="processes">
-                <p>Nombre de processus à utiliser pour l'indexation. Cela peut être utilisé pour effectuer davantage de travail 
-                    d'indexation en parallèle sur des systèmes multicœurs. Par défaut, un seul processus est utilisé.</p>
-                <br>
-
-                <label for="bnumber">Numéro de notice à réindexer</label>
-                <input type="number" name="bnumber" id="bnumber">
-                <p>Indexer uniquement le biblionumber fourni, principalement à des fins de test. Peut être répété.</p>
-                <br>
-
-                <label for="authid">Numéro de notice d'autorité à réindexer</label>
-                <input type="number" name="authid" id="authid">
-                <p>Indexer uniquement l'id d'autorité fournie, principalement à des fins de test. Peut être répété.</p>
-                <br>
+            <!-- Row: Authorities -->
+            <div class="form-row two-col fixed-row">
+                <div class="col-left">
+                    <label for="authorities">Autorités</label>
+                    <input type="checkbox" name="authorities" id="authorities" [% IF authorities %]checked[% END %]>
+                </div>
+                <div class="col-right collapsible" id="row-authid" [% IF authid %][% ELSE %]hidden[% END %]>
+                    <label for="authid" class="right-label">Indexer une autorité précise</label>
+                    <input type="number" name="authid" id="authid" value="[% authid | html %]"
+                           placeholder="ID d’autorité">
+                </div>
             </div>
-            <div>
-                <label for="delete">Supprimer l'index</label>
-                <input type="checkbox" name="delete" id="delete">
-                <p>Supprimer l'index et le recréer avant l'indexation.</p>
-                <br>
 
-                <label for="reset">Mettre à jour les mappages</label>
-                <input type="checkbox" name="reset" id="reset">
-                <p>Mettre à jour les mappages à partir des fichiers (spécifiés dans koha-conf.xml) avant l'indexation.</p>
-                <br>
-
-                <label for="descending">Indexer en ordre décroissant selon l'ID</label>
-                <input type="checkbox" name="descending" id="descending">
-                <p>Indexer les enregistrements dans l'ordre décroissant des identifiants. Destiné à indexer les enregistrements les plus 
-                    récents avant les enregistrements les plus anciens. La valeur par défaut est l'indexation dans l'ordre croissant. 
-                    Ne fonctionne pas avec le numéro de biblionumber ou l'id d'autorité fournie</p>
-                <br>
-
-                <label for="authorities">Indexer autorités seulement</label>
-                <input type="checkbox" name="authorities" id="authorities">
-                <p>Indexer uniquement les autorités. Combiner cette option avec « Indexer uniquement les notices » revient à ne 
-                    spécifier aucune des deux options et donc les deux seront indexées.</p>
-                <br>
-
-                <label for="biblios">Indexer notices seulement</label>
-                <input type="checkbox" name="biblios" id="biblios">
-                <p>Indexer uniquement les notices. Combiner cette option avec « Indexer uniquement les autorités » revient à ne 
-                    spécifier aucune des deux options et donc les deux seront indexées.</p>
-                <br>
+            <!-- Row: Biblios -->
+            <div class="form-row two-col fixed-row">
+                <div class="col-left">
+                    <label for="biblios">Notices</label>
+                    <input type="checkbox" name="biblios" id="biblios" [% IF biblios %]checked[% END %]>
+                </div>
+                <div class="col-right collapsible" id="row-bnumber" [% IF bnumber %][% ELSE %]hidden[% END %]>
+                    <label for="bnumber" class="right-label">Indexer une notice précise</label>
+                    <input type="number" name="bnumber" id="bnumber" value="[% bnumber | html %]"
+                           placeholder="numéro de notice">
+                </div>
             </div>
-        </div>
+        </fieldset>
+
+
+        <fieldset class="form-section" style="background-color: #f9f9f9">
+            <legend>Options</legend>
+            <div class="form-row">
+                <label for="delete">Supprimer et recréer l’index</label>
+                <input type="checkbox" name="delete" id="delete" [% IF delete %]checked[% END %]>
+            </div>
+            <div class="form-row">
+                <label for="descending">Indexer les enregistrements par ID en ordre décroissant</label>
+                <input type="checkbox" name="descending" id="descending" [% IF descending %]checked[% END %]>
+            </div>
+        </fieldset>
 
         <input type="submit" value="Exécuter">
     </form>
+
+[% IF global_outputs.match('DONE') && !global_outputs.match('WARNING') %]
+<div class="alert alert-success">Indexation terminée avec succès.</div>
+[% END %]
+
+[% IF global_outputs.match('WARNING') %]
+<div class="alert alert-warning" role="alert" style="margin-top:8px;">
+    Indexation terminée avec des avertissements. Certains enregistrements ont peut-être été ignorés. Veuillez consulter
+    la section « Sortie » ci-dessous pour les détails.
 </div>
+[% END %]
+
+[% IF global_outputs.match('ERROR') %]
+<div class="alert alert-error" role="alert" style="margin-top:8px;">
+    ERREUR. Veuillez consulter la section « Sortie » ci-dessous pour les détails.
+</div>
+[% END %]
+</div>
+
 <br>
-<div style="padding: 20px; background-color: #f9f9f9; border: 1px solid #ddd; max-width: 800px; margin: 0 auto;white-space:pre-line;">
-    <h2 style="font-size: 24px; color: #333; margin-top: 20px;">Sortie</h2>
-    <br>
-    [% global_outputs %]
-</div>
+
+<details style="padding: 20px; background-color: #f9f9f9; border: 1px solid #ddd; max-width: 800px; margin: 0 auto;">
+    <summary style="font-size: 24px; color: #333;">Sortie</summary>
+    <pre style="white-space: pre-line;">[% global_outputs %]</pre>
+</details>
 
 <br><br>
 
 <script type="text/javascript">
+    // Confirm before destructive recreate
+    document.getElementById('rebuildForm').addEventListener('submit', function (e) {
+        if (document.getElementById('delete').checked) {
+            if (!confirm("Êtes-vous certain de vouloir supprimer l’index et le recréer? Cette action est irréversible.")) {
+                e.preventDefault();
+            }
+        }
+    });
 
+    // Show/hide helper for the two id fields, tied to checkboxes
+    function setupReveal(checkboxId, rowId, inputId) {
+        var cb = document.getElementById(checkboxId);
+        var row = document.getElementById(rowId);
+        var input = document.getElementById(inputId);
+
+        if (!cb || !row) return;
+
+        function sync() {
+            // Show if the checkbox is checked OR there's already a value (e.g., after submit)
+            var shouldShow = cb.checked || (input && String(input.value || '').trim() !== '');
+            row.hidden = !shouldShow;
+            cb.setAttribute('aria-expanded', shouldShow ? 'true' : 'false');
+        }
+
+        cb.addEventListener('change', sync);
+        sync(); // initial
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        setupReveal('authorities', 'row-authid', 'authid');
+        setupReveal('biblios', 'row-bnumber', 'bnumber');
+    });
 </script>
 
 <style>
@@ -112,8 +149,39 @@
         display: inline-block;
     }
 
+    .two-col {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .fixed-row {
+        min-height: 45px;
+        align-items: center;
+    }
+
+    .col-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 280px;
+    }
+
+    .col-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+    }
+
+    .right-label {
+        width: auto;
+        min-width: unset;
+    }
+
     #rebuildForm input[type=number] {
-        margin-right: 60px;
         width: 150px;
     }
 
@@ -121,11 +189,25 @@
         width: 250px;
         font-size: 10px;
         color: #666;
+        margin: 4px 0 0 0;
     }
 
-    #commandsform {
-        display: flex;
+    .form-section {
+        border: none;
+        margin-bottom: 20px;
+        padding: 0;
     }
+
+    .form-row {
+        margin-bottom: 10px;
+    }
+
+    /* Ensure hidden elements stay hidden even if inline styles collide */
+    .collapsible[hidden] {
+        display: none !important;
+        color: #666;
+    }
+
 </style>
 
 [% INCLUDE 'intranet-bottom.inc' %]
